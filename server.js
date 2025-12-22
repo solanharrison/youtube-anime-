@@ -5,8 +5,6 @@ const app = express();
 app.use(cors());
 
 const API_KEY = process.env.YT_API_KEY;
-
-//  CONFIRMED Muse India channel ID
 const MUSE_CHANNEL_ID = "UCYYhAzgWuxPauRXdPpLAX3Q";
 
 app.get("/api/search", async (req, res) => {
@@ -18,11 +16,11 @@ app.get("/api/search", async (req, res) => {
 
   const url =
     "https://www.googleapis.com/youtube/v3/search" +
-    `?part=snippet` +
+    "?part=snippet" +
+    "&type=video" +
     `&channelId=${MUSE_CHANNEL_ID}` +
     `&q=${encodeURIComponent(query)}` +
-    `&type=video` +
-    `&maxResults=25` +
+    "&maxResults=25" +
     `&key=${API_KEY}`;
 
   try {
