@@ -5,30 +5,30 @@ const app = express();
 app.use(cors());
 
 const API_KEY = process.env.YT_API_KEY;
-const MUSE_CHANNEL_ID = "UCYYhAzgWuxPauRXdPpLAX3Q";
 
-app.get("/api/search", async (req, res) => {
-  const query = req.query.q;
+/**
+ * Fetch videos from a YouTube playlist (Muse India)
+ */
+app.get("/api/playlist", async (req, res) => {
+  const playlistId = req.query.playlistId;
 
-  if (!query) {
-    return res.status(400).json({ error: "Missing query" });
+  if (!playlistId) {
+    return res.status(400).json({ error: "Missing playlistId" });
   }
 
   const url =
-    "https://www.googleapis.com/youtube/v3/search" +
+    "https://www.googleapis.com/youtube/v3/playlistItems" +
     "?part=snippet" +
-    "&type=video" +
-    `&channelId=${MUSE_CHANNEL_ID}` +
-    `&q=${encodeURIComponent(query)}` +
-    "&maxResults=25" +
+    `&playlistId=${playlistId}` +
+    "&maxResults=50" +
     `&key=${API_KEY}`;
 
   try {
     const response = await fetch(url);
     const data = await response.json();
     res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: "YouTube API failed" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch playlist" });
   }
 });
 
