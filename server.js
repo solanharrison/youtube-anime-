@@ -1,25 +1,28 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/* ==========================
+   MIDDLEWARE
+========================== */
 app.use(cors());
 app.use(express.json());
 
+/* ==========================
+   CONSTANTS
+========================== */
 const YT_API_KEY = process.env.YT_API_KEY;
 const MUSE_CHANNEL_ID = "UCYYhAzgWuxPauRXdPpLAX3Q"; // Muse India
 
 if (!YT_API_KEY) {
-  console.error(" YT_API_KEY is missing");
+  console.error(" ERROR: YT_API_KEY is not set in Render environment variables");
 }
 
-/* =========================
+/* ==========================
    HEALTH CHECK
-========================= */
+========================== */
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
@@ -27,10 +30,9 @@ app.get("/", (req, res) => {
   });
 });
 
-/* =========================
-   SEARCH PLAYLIST BY QUERY
-   (Reliable availability check)
-========================= */
+/* ==========================
+   SEARCH PLAYLIST (CORRECT WAY)
+========================== */
 app.get("/api/search", async (req, res) => {
   const q = req.query.q;
 
@@ -75,15 +77,14 @@ app.get("/api/search", async (req, res) => {
     console.error("Search failed:", err);
     res.status(500).json({
       success: false,
-      error: "Server fetch failed",
+      error: "Server error",
     });
   }
 });
 
-/* =========================
-   GET ALL MUSE PLAYLISTS
-   (Handles pagination)
-========================= */
+/* ==========================
+   GET ALL PLAYLISTS (PAGINATED)
+========================== */
 app.get("/api/playlists", async (req, res) => {
   let playlists = [];
   let pageToken = "";
@@ -118,17 +119,17 @@ app.get("/api/playlists", async (req, res) => {
       items: playlists,
     });
   } catch (err) {
-    console.error("Playlist fetch failed:", err);
+    console.error("Playlists fetch failed:", err);
     res.status(500).json({
       success: false,
-      error: "Failed to fetch playlists",
+      error: "Server error",
     });
   }
 });
 
-/* =========================
+/* ==========================
    START SERVER
-========================= */
+========================== */
 app.listen(PORT, () => {
-  console.log(` Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
