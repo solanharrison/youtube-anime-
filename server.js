@@ -1,5 +1,4 @@
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -8,48 +7,45 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ==========================
-   BASIC MIDDLEWARE
-========================== */
 app.use(cors());
 app.use(express.json());
 
-/* ==========================
-   CONSTANTS
-========================== */
 const YT_API_KEY = process.env.YT_API_KEY;
 const MUSE_CHANNEL_ID = "UCYYhAzgWuxPauRXdPpLAX3Q"; // Muse India
 
 if (!YT_API_KEY) {
-  console.error(" ERROR: YT_API_KEY not set in environment variables");
+  console.error(" YT_API_KEY is missing");
 }
 
-/* ==========================
+/* =========================
    HEALTH CHECK
-========================== */
+========================= */
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
-    service: "youtube-anime-server",
+    service: "youtube-anime-api",
   });
 });
 
-/* ==========================
-   1️⃣ SEARCH PLAYLIST BY ANIME NAME
-   (Used for WATCH NOW / STREAM OPTIONS)
-========================== */
+/* =========================
+   SEARCH PLAYLIST BY QUERY
+   (Reliable availability check)
+========================= */
 app.get("/api/search", async (req, res) => {
-  const query = req.query.q;
+  const q = req.query.q;
 
-  if (!query) {
-    return res.status(400).json({ error: "Missing query parameter" });
+  if (!q) {
+    return res.status(400).json({
+      success: false,
+      error: "Missing query parameter",
+    });
   }
 
   const url =
     "https://www.googleapis.com/youtube/v3/search" +
     `?part=snippet&type=playlist&maxResults=1` +
     `&channelId=${MUSE_CHANNEL_ID}` +
-    `&q=${encodeURIComponent(query)}` +
+    `&q=${encodeURIComponent(q)}` +
     `&key=${YT_API_KEY}`;
 
   try {
@@ -57,49 +53,82 @@ app.get("/api/search", async (req, res) => {
     const data = await response.json();
 
     if (data.error) {
-      console.error("YouTube API Error:", data.error);
-      return res.json(null);
+      console.error("YouTube API error:", data.error);
+      return res.json({
+        success: false,
+        error: "YouTube API error",
+      });
     }
 
-    // Return first playlist or null
-    res.json(data.items?.[0] || null);
+    if (data.items && data.items.length > 0) {
+      return res.json({
+        success: true,
+        playlist: data.items[0],
+      });
+    }
+
+    return res.json({
+      success: false,
+      playlist: null,
+    });
   } catch (err) {
-    console.error("Search API failed:", err);
-    res.json(null);
+    console.error("Search failed:", err);
+    res.status(500).json({
+      success: false,
+      error: "Server fetch failed",
+    });
   }
 });
 
-/* ==========================
-   2️⃣ GET ALL PLAYLISTS FROM MUSE INDIA
-   (Used for all-anime / indexing)
-========================== */
+/* =========================
+   GET ALL MUSE PLAYLISTS
+   (Handles pagination)
+========================= */
 app.get("/api/playlists", async (req, res) => {
-  const url =
-    "https://www.googleapis.com/youtube/v3/playlists" +
-    `?part=snippet&maxResults=50` +
-    `&channelId=${MUSE_CHANNEL_ID}` +
-    `&key=${YT_API_KEY}`;
+  let playlists = [];
+  let pageToken = "";
 
   try {
-    const response = await fetch(url);
-    const data = await response.json();
+    do {
+      const url =
+        "https://www.googleapis.com/youtube/v3/playlists" +
+        `?part=snippet&maxResults=50` +
+        `&channelId=${MUSE_CHANNEL_ID}` +
+        `&key=${YT_API_KEY}` +
+        (pageToken ? `&pageToken=${pageToken}` : "");
 
-    if (data.error) {
-      console.error("YouTube API Error:", data.error);
-      return res.status(500).json({ error: "YouTube API error" });
-    }
+      const response = await fetch(url);
+      const data = await response.json();
 
-    res.json(data);
+      if (data.error) {
+        console.error("YouTube API error:", data.error);
+        return res.status(500).json({
+          success: false,
+          error: "YouTube API error",
+        });
+      }
+
+      playlists = playlists.concat(data.items || []);
+      pageToken = data.nextPageToken || "";
+    } while (pageToken);
+
+    res.json({
+      success: true,
+      count: playlists.length,
+      items: playlists,
+    });
   } catch (err) {
-    console.error("Playlists API failed:", err);
-    res.status(500).json({ error: "Failed to fetch playlists" });
+    console.error("Playlist fetch failed:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch playlists",
+    });
   }
 });
 
-/* ==========================
-   SERVER START
-========================== */
+/* =========================
+   START SERVER
+========================= */
 app.listen(PORT, () => {
   console.log(` Server running on port ${PORT}`);
 });
-
