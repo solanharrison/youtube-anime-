@@ -21,7 +21,7 @@ const YT_API_KEY = process.env.YT_API_KEY;
 const MUSE_CHANNEL_ID = "UCYYhAzgWuxPauRXdPpLAX3Q"; // Muse India
 
 if (!YT_API_KEY) {
-  console.error("❌ ERROR: YT_API_KEY not set in environment variables");
+  console.error(" ERROR: YT_API_KEY not set in environment variables");
 }
 
 /* ==========================
@@ -100,5 +100,6 @@ app.get("/api/playlists", async (req, res) => {
    SERVER START
 ========================== */
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(` Server running on port ${PORT}`);
 });
+
