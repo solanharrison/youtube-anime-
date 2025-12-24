@@ -1,135 +1,65 @@
 import express from "express";
-import cors from "cors";
+import fetch from "node-fetch";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ==========================
-   MIDDLEWARE
-========================== */
-app.use(cors());
-app.use(express.json());
+// 🔑 Your YouTube API key
+const YT_API_KEY = process.env.YT_API_KEY || "YOUR_API_KEY_HERE";
 
-/* ==========================
-   CONSTANTS
-========================== */
-const YT_API_KEY = process.env.YT_API_KEY;
-const MUSE_CHANNEL_ID = "UCYYhAzgWuxPauRXdPpLAX3Q"; // Muse India
-
-if (!YT_API_KEY) {
-  console.error(" ERROR: YT_API_KEY is not set in Render environment variables");
-}
-
-/* ==========================
-   HEALTH CHECK
-========================== */
-app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "youtube-anime-api",
-  });
+// Allow frontend access
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  next();
 });
 
-/* ==========================
-   SEARCH PLAYLIST (CORRECT WAY)
-========================== */
-app.get("/api/search", async (req, res) => {
-  const q = req.query.q;
-
-  if (!q) {
-    return res.status(400).json({
-      success: false,
-      error: "Missing query parameter",
-    });
-  }
-
-  const url =
-    "https://www.googleapis.com/youtube/v3/search" +
-    `?part=snippet&type=playlist&maxResults=1` +
-    `&channelId=${MUSE_CHANNEL_ID}` +
-    `&q=${encodeURIComponent(q)}` +
-    `&key=${YT_API_KEY}`;
-
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.error) {
-      console.error("YouTube API error:", data.error);
-      return res.json({
-        success: false,
-        error: "YouTube API error",
-      });
-    }
-
-    if (data.items && data.items.length > 0) {
-      return res.json({
-        success: true,
-        playlist: data.items[0],
-      });
-    }
-
-    return res.json({
-      success: false,
-      playlist: null,
-    });
-  } catch (err) {
-    console.error("Search failed:", err);
-    res.status(500).json({
-      success: false,
-      error: "Server error",
-    });
-  }
-});
-
-/* ==========================
-   GET ALL PLAYLISTS (PAGINATED)
-========================== */
+/* ===========================
+   GET ALL MUSE PLAYLISTS
+=========================== */
 app.get("/api/playlists", async (req, res) => {
-  let playlists = [];
-  let pageToken = "";
-
   try {
-    do {
-      const url =
-        "https://www.googleapis.com/youtube/v3/playlists" +
-        `?part=snippet&maxResults=50` +
-        `&channelId=${MUSE_CHANNEL_ID}` +
-        `&key=${YT_API_KEY}` +
-        (pageToken ? `&pageToken=${pageToken}` : "");
+    const channelId = "UCYYhAzgWuxPauRXdPpLAX3Q"; // Muse India
 
-      const response = await fetch(url);
-      const data = await response.json();
+    const url =
+      `https://www.googleapis.com/youtube/v3/playlists` +
+      `?part=snippet&channelId=${channelId}&maxResults=50&key=${YT_API_KEY}`;
 
-      if (data.error) {
-        console.error("YouTube API error:", data.error);
-        return res.status(500).json({
-          success: false,
-          error: "YouTube API error",
-        });
-      }
+    const r = await fetch(url);
+    const data = await r.json();
 
-      playlists = playlists.concat(data.items || []);
-      pageToken = data.nextPageToken || "";
-    } while (pageToken);
-
-    res.json({
-      success: true,
-      count: playlists.length,
-      items: playlists,
-    });
+    res.json(data);
   } catch (err) {
-    console.error("Playlists fetch failed:", err);
-    res.status(500).json({
-      success: false,
-      error: "Server error",
-    });
+    res.status(500).json({ error: "Failed to fetch playlists" });
   }
 });
 
-/* ==========================
+/* ===========================
+   ✅ GET PLAYLIST VIDEOS
+=========================== */
+app.get("/api/playlist-items", async (req, res) => {
+  const { playlistId } = req.query;
+
+  if (!playlistId) {
+    return res.status(400).json({ error: "playlistId required" });
+  }
+
+  try {
+    const url =
+      `https://www.googleapis.com/youtube/v3/playlistItems` +
+      `?part=snippet&playlistId=${playlistId}&maxResults=50&key=${YT_API_KEY}`;
+
+    const r = await fetch(url);
+    const data = await r.json();
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch playlist items" });
+  }
+});
+
+/* ===========================
    START SERVER
-========================== */
+=========================== */
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
